@@ -27,6 +27,11 @@ export default function Home() {
                   role: "user",
                   content: data.content as string,
                 },
+                // return new response for assistant after message from user
+                {
+                  role: "assistant",
+                  content: "",
+                },
               ]);
 
               const response = await fetch(
@@ -50,18 +55,54 @@ export default function Home() {
                         content: data.content,
                       },
                     ],
+                    stream: true,
                   }),
                 }
               );
-              const json = await response.json();
-              console.log(json);
-              setMessages((messages: Messages) => [
-                ...messages,
-                {
-                  role: "assistant",
-                  content: json.choices[0].message.content,
-                },
-              ]);
+
+              //   Print response.text() to console
+              //   const returnText = await response.text();
+              //   console.log(returnText);
+
+              if (!response.body) return;
+              const reader = response.body?.getReader();
+              const decoder = new TextDecoder();
+
+              let isFinished = false;
+              while (!isFinished) {
+                const { done, value } = await reader.read();
+                isFinished = done;
+
+                const decodedValue = decoder.decode(value);
+                console.log(decodedValue);
+                if (!decodedValue) break;
+
+                const messages = decodedValue.split("\n\n");
+                // console.log(messages);
+
+                const chuncks = messages
+                  .filter((msg) => msg && msg != "data: [DONE]")
+                  .map((message) =>
+                    JSON.parse(message.replace(/^data:/g, "").trim())
+                  );
+                // console.log(chuncks)
+
+                for (const chunck of chuncks) {
+                  const content = chunck.choices[0].delta.content;
+                  console.log(chunck.choices[0].delta.content);
+                  if (content) {
+                    setMessages((messages: Messages) => [
+                      ...messages.slice(0, messages.length - 1),
+                      {
+                        role: "assistant",
+                        content: `${
+                          messages[messages.length - 1].content
+                        }${content}`,
+                      },
+                    ]);
+                  }
+                }
+              }
             }}
           >
             <div className="form-control">
@@ -90,7 +131,8 @@ export default function Home() {
               <p key={index}>
                 {message.role.charAt(0).toUpperCase() + message.role.slice(1)} :{" "}
                 {message.content}
-                <br /><br />
+                <br />
+                <br />
               </p>
             ))}
           </div>
