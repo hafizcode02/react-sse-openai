@@ -21,7 +21,7 @@ export default function Home() {
               const formData = new FormData(e.currentTarget);
               const data = Object.fromEntries(formData.entries());
 
-              setMessages((messages: Messages) => [
+              const payloadMessages = [
                 ...messages,
                 {
                   role: "user",
@@ -32,37 +32,21 @@ export default function Home() {
                   role: "assistant",
                   content: "",
                 },
-              ]);
+              ];
 
-              const response = await fetch(
-                "https://api.openai.com/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization:
-                      "Bearer " + import.meta.env.VITE_OPENAI_API_KEY,
-                  },
-                  body: JSON.stringify({
-                    model: "gpt-3.5-turbo",
-                    messages: [
-                      {
-                        role: "system",
-                        content: "You are a helpful assistant.",
-                      },
-                      {
-                        role: "user",
-                        content: data.content,
-                      },
-                    ],
-                    stream: true,
-                  }),
-                }
-              );
+              setMessages(payloadMessages as Messages);
 
-              //   Print response.text() to console
-              //   const returnText = await response.text();
-              //   console.log(returnText);
+              const response = await fetch("http://localhost:4000/chatToGPT", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization:
+                    "Bearer " + import.meta.env.VITE_OPENAI_API_KEY,
+                },
+                body: JSON.stringify({
+                  content: data.content,
+                }),
+              });
 
               if (!response.body) return;
               const reader = response.body?.getReader();
@@ -77,31 +61,16 @@ export default function Home() {
                 console.log(decodedValue);
                 if (!decodedValue) break;
 
-                const messages = decodedValue.split("\n\n");
-                // console.log(messages);
-
-                const chuncks = messages
-                  .filter((msg) => msg && msg != "data: [DONE]")
-                  .map((message) =>
-                    JSON.parse(message.replace(/^data:/g, "").trim())
-                  );
-                // console.log(chuncks)
-
-                for (const chunck of chuncks) {
-                  const content = chunck.choices[0].delta.content;
-                  console.log(chunck.choices[0].delta.content);
-                  if (content) {
-                    setMessages((messages: Messages) => [
-                      ...messages.slice(0, messages.length - 1),
-                      {
-                        role: "assistant",
-                        content: `${
-                          messages[messages.length - 1].content
-                        }${content}`,
-                      },
-                    ]);
-                  }
-                }
+                setMessages((messages: Messages) => [
+                  ...messages.slice(0, messages.length - 1),
+                  {
+                    role: "assistant",
+                    content: `${
+                      messages[messages.length - 1].content
+                    }${decodedValue}`,
+                  },
+                ]);
+                
               }
             }}
           >
