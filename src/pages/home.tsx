@@ -36,6 +36,7 @@ export default function Home() {
 
               setMessages(payloadMessages as Messages);
 
+              // Kalo Pake Vercel edge functions, langsung aja copy paste linknya ke sini /api/stream
               const response = await fetch("http://localhost:4000/chatToGPT", {
                 method: "POST",
                 headers: {
